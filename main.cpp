@@ -143,10 +143,15 @@ int main()
 			int line = 3;
 			deleteOldPath(s);
 		}
+		else
+		{
+			cout << "fuction error, svn <function> [parameter]" << endl;
+			cout << "function : create, status, add, commit, delete, mv, git log, revert" << endl;
+		}
 	}
 	else
 	{
-		cout << "command error" << endl;
+		cout << "command error, svn <function> [parameter]" << endl;
 	}
 
 	system("pause");
@@ -231,7 +236,8 @@ void status()
 	for (vector<string>::iterator i = files.begin(), end = files.end(); i != end; ++i)
 	{
 		filename = subFilename(*i);
-		for (int j = 0; j < manage_str.size(); ++j)
+		int j = 0;
+		for (; j < manage_str.size(); ++j)
 		{
 			manage_file = subFilename(manage_str[j]);
 			if (filename == manage_file)//filename在文件manage_file中找到，说明已被管理
@@ -271,10 +277,9 @@ void status()
 				}
 				break;
 			}
-			if (j == manage_str.size() - 1)
-				cout << "? " << filename << endl;
 		}
-		
+		if (j == manage_str.size())
+			cout << "? " << filename << endl;
 	}
 }
 
@@ -479,7 +484,7 @@ void commit(string parameter)
 	filename = parameter.substr(0, parameter.find_first_of(" ", 0));
 	if (filename == "-m")//没有输入文件/目录名
 	{
-		cout << "please inter file or directory name："<<endl
+		cout << "Please inter file or directory name："<<endl
 				<< "svn commit [文件名/目录名] (-m '提交日志')" << endl;
 		return;
 	}
@@ -642,7 +647,7 @@ void backupD(const string versionNum, vector<string> commit_file)
 			mkDir(version_num_path);
 		}
 		copy_file = source_file.substr(source_file.find_last_of("\\") + 1);
-		copyFile(source_file, version_num_path + copy_file);//将文件写入版本号文件夹
+		copyFile(new_version_path, version_num_path + copy_file);//将文件写入版本号文件夹
 		remove(new_version_path.c_str());
 	}
 }
@@ -828,7 +833,7 @@ void del(string parameter)
 		if (subFilename(manage_file[i]) == file)//找到manage_file中的文件
 		{
 			string label = getLabel(manage_file[i]);
-			if (label != "C")//标记为C的文件可以被delete
+			if (label != "C" && label != "D")//标记为C的文件可以被delete
 			{
 				cout << label << " status can not been delete, you should commit before del" << endl;
 				return;
@@ -984,7 +989,7 @@ void gitLogAll()
 	{
 		log = getLogToString(logs[i]);
 		cout << "version number is: " << logs[i].substr(logs[i].find_last_of("\\") + 1)
-			 << " log: " << log << endl;
+			 << ", log: " << log << endl;
 	}
 }
 //读取文件第一行内容（日志）filename = .svn\commit\1539777011
@@ -1089,7 +1094,7 @@ void revertAll()
 	version_content = getVersionContent(recent_version);//获得版本号文件中的内容
 	//恢复文件，（删除工作目录下文件），拷贝newVerison到工作目录，更改标签为C
 	string filename;
-	filename = subFilename(version_content[1]);
+	filename = subFilename(version_content[1]);///content[1]是MV？？？？？？
 
 	revertA(filename, recent_version);
 	
@@ -1118,8 +1123,24 @@ bool cmp(string a, string b)
 	return a > b;
 }
 //设置版本号，将仓库托管的所有文件恢复到特定提交版本
+//直接将该版本号中的文件revert
 void revertVersion(const string version)
 {
+	vector<string> version_content;//version该版本中的内容
+	version_content = getVersionContent(version);
+	if (version_content.size() == 0)
+	{
+		cout << "This version " << version << " no exist" << endl;
+		return;
+	}
+	string filename;
+	//if (version_content.size() == 3)//第三行肯定是C，第二行是MV
+	//	filename = subFilename(version_content[2]);
+	//if (version_content.size() == 2)//第二行肯定是D
+	//	filename = subFilename(version_content[1]);
+	filename = subFilename(version_content[1]);///content[1]是MV？？？？？？
+
+	revertA(filename, version);
 
 }
 //既设置版本号又设置文件名，则将特定文件恢复到特定提交版本
@@ -1176,6 +1197,8 @@ string getLastVersion(vector<string> versions, string filename)
 	for (; i < versions.size(); ++i)
 	{
 		contents = getVersionContent(versions[i]);//版本号日志的内容
+		if (contents.size() == 0)
+			continue;
 		if (getLabel(contents[1]) != "MV")
 		{
 			if (subFilename(contents[1]) == filename)
@@ -1192,11 +1215,13 @@ string getLastVersion(vector<string> versions, string filename)
 }
 
 
-//获得版本号文件中的内容 version 版本号
+//获得版本号文件中的内容 version 版本号，如果version不存在，返回的vector.size()=0
 vector<string> getVersionContent(string version)
 {
 	version = ".svn\\commit\\" + version;
 	ifstream infile(version);       //读入文件
+	//if (!infile)
+	//	cout << "This version " << version << " no exist" << endl;
 	vector<string> lines;           //版本号内容，三行
 	string line;
 	while (getline(infile, line))
